@@ -9,9 +9,13 @@ import org.pac4j.core.engine.DefaultCallbackLogic
 import org.pac4j.core.engine.DefaultLogoutLogic
 import org.pac4j.core.engine.DefaultSecurityLogic
 import org.pac4j.core.profile.ProfileManager
+import org.pac4j.core.profile.factory.ProfileManagerFactory
 import org.pac4j.core.profile.UserProfile
 import org.pac4j.jee.context.JEEContext
+import org.pac4j.jee.context.JEEContextFactory
+import org.pac4j.jee.context.JEEFrameworkParameters
 import org.pac4j.jee.context.session.JEESessionStore
+import org.pac4j.jee.context.session.JEESessionStoreFactory
 import org.pac4j.jee.http.adapter.JEEHttpActionAdapter
 import org.pac4j.saml.state.SAML2StateGenerator
 
@@ -30,7 +34,7 @@ class AuthenticationFlow {
 
         // init fields required for logic
         JEEContext context = new JEEContext(ec.web.request, ec.web.response)
-        JEESessionStore sessionStore = JEESessionStore.INSTANCE
+        JEESessionStore sessionStore = new JEESessionStore()   // pac4j 6.3.1: the INSTANCE singleton was removed from JEESessionStore
         MoquiSecurityGrantedAccessAdapter securityGrantedAccessAdapter = new MoquiSecurityGrantedAccessAdapter(ec)
         JEEHttpActionAdapter actionAdapter = JEEHttpActionAdapter.INSTANCE
 
@@ -40,21 +44,23 @@ class AuthenticationFlow {
             sessionStore.set(context, SAML2StateGenerator.SAML_RELAY_STATE_ATTRIBUTE, returnTo)
         }
 
-        // init config
+        // init config (pac4j 6: JEE adapters travel on the Config, request/response via FrameworkParameters)
         Client client = new AuthenticationClientFactory(ec).build(authFlowId)
         Config config = new Config(callbackUrl, client)
+        config.setWebContextFactory(JEEContextFactory.INSTANCE)
+        config.setSessionStoreFactory(JEESessionStoreFactory.INSTANCE)
+        config.setHttpActionAdapter(actionAdapter)
+        config.setProfileManagerFactory(ProfileManagerFactory.DEFAULT)
 
         // perform logic
         try {
             DefaultSecurityLogic.INSTANCE.perform(
-                    context,
-                    sessionStore,
                     config,
                     securityGrantedAccessAdapter,
-                    actionAdapter,
                     authFlowId,
                     DefaultAuthorizers.IS_AUTHENTICATED,
-                    null
+                    null,
+                    new JEEFrameworkParameters(ec.web.request, ec.web.response)
             )
         } catch (RuntimeException e) {
             ec.logger.error("An error occurred while performing login action", e)
@@ -72,12 +78,16 @@ class AuthenticationFlow {
 
         // init fields required for logic
         JEEContext context = new JEEContext(ec.web.request, ec.web.response)
-        JEESessionStore sessionStore = JEESessionStore.INSTANCE
+        JEESessionStore sessionStore = new JEESessionStore()   // pac4j 6.3.1: the INSTANCE singleton was removed from JEESessionStore
         MoquiSecurityGrantedAccessAdapter securityGrantedAccessAdapter = new MoquiSecurityGrantedAccessAdapter(ec)
         JEEHttpActionAdapter actionAdapter = JEEHttpActionAdapter.INSTANCE
 
-        // init config
+        // init config (pac4j 6: JEE adapters travel on the Config, request/response via FrameworkParameters)
         Config config = new Config(ec.web.getWebappRootUrl(true, false) + "/sso/callback", new org.moqui.sso.AuthenticationClientFactory(ec).buildAll())
+        config.setWebContextFactory(JEEContextFactory.INSTANCE)
+        config.setSessionStoreFactory(JEESessionStoreFactory.INSTANCE)
+        config.setHttpActionAdapter(actionAdapter)
+        config.setProfileManagerFactory(ProfileManagerFactory.DEFAULT)
 
         // retrieve return URL from "RelayState" parameter (SAML only), or from session attribute
         String redirectTo = context.getRequestParameter("RelayState").orElse(ec.web.sessionAttributes.moquiAuthFlowReturnTo as String)
@@ -85,13 +95,11 @@ class AuthenticationFlow {
         // perform logic
         try {
             DefaultCallbackLogic.INSTANCE.perform(
-                    context,
-                    sessionStore,
                     config,
-                    actionAdapter,
                     null,
                     false,
-                    null
+                    null,
+                    new JEEFrameworkParameters(ec.web.request, ec.web.response)
             )
 
             // handle incoming profiles
@@ -124,24 +132,26 @@ class AuthenticationFlow {
 
         // init fields required for logic
         JEEContext context = new JEEContext(ec.web.request, ec.web.response)
-        JEESessionStore sessionStore = JEESessionStore.INSTANCE
+        JEESessionStore sessionStore = new JEESessionStore()   // pac4j 6.3.1: the INSTANCE singleton was removed from JEESessionStore
         JEEHttpActionAdapter actionAdapter = JEEHttpActionAdapter.INSTANCE
 
-        // init config
+        // init config (pac4j 6: JEE adapters travel on the Config, request/response via FrameworkParameters)
         Config config = new Config(baseUrl + "/sso/callback", new AuthenticationClientFactory(ec).buildAll())
+        config.setWebContextFactory(JEEContextFactory.INSTANCE)
+        config.setSessionStoreFactory(JEESessionStoreFactory.INSTANCE)
+        config.setHttpActionAdapter(actionAdapter)
+        config.setProfileManagerFactory(ProfileManagerFactory.DEFAULT)
 
         // perform logic
         try {
             DefaultLogoutLogic.INSTANCE.perform(
-                    context,
-                    sessionStore,
                     config,
-                    actionAdapter,
                     callbackUrl,
                     null,
                     false,
                     false,
-                    true
+                    true,
+                    new JEEFrameworkParameters(ec.web.request, ec.web.response)
             )
 
             // logout user
