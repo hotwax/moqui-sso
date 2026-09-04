@@ -34,18 +34,24 @@ dependencies {
     implementation project(':framework')
 
     // pac4j
-    implementation 'org.pac4j:pac4j-core:6.3.1'
-    implementation 'org.pac4j:pac4j-jakartaee:6.3.1'
-    implementation 'org.pac4j:pac4j-oauth:6.3.1'
-    implementation 'org.pac4j:pac4j-oidc:6.3.1'
-    implementation ('org.pac4j:pac4j-saml:6.3.1') {
+    implementation 'org.pac4j:pac4j-core:6.5.7'
+    implementation 'org.pac4j:pac4j-jakartaee:6.5.7'
+    implementation 'org.pac4j:pac4j-oauth:6.5.7'
+    implementation 'org.pac4j:pac4j-oidc:6.5.7'
+    implementation ('org.pac4j:pac4j-saml:6.5.7') {
         exclude group: 'org.springframework'
         exclude group: 'org.bouncycastle'
     }
 
-    // explicit dependencies to get newer versions
-    implementation 'org.springframework:spring-core:5.3.29'
-    implementation 'org.bouncycastle:bcprov-jdk18on:1.83'
+    // explicit dependencies to get newer versions (stay on Spring 5.3.x, not 6/7)
+    implementation 'org.springframework:spring-core:5.3.39'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.85.2'
+}
+
+configurations.configureEach {
+    resolutionStrategy {
+        force 'org.springframework:spring-core:5.3.39'
+    }
 }
 
 // by default the Java plugin runs test on build, change to not do that (only run test if explicit task)
